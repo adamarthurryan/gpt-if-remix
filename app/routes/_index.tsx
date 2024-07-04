@@ -31,7 +31,7 @@ export default function Index() {
 
   return (
     <div id="sidebar">
-    <h1>gpt if</h1>
+    <h1><Link to="/">gpt if</Link></h1>
     <div>
       <Form method="post" action="stories">
         <button type="submit">New Story</button>

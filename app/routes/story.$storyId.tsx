@@ -11,17 +11,21 @@ import {
   useLoaderData,
   useNavigation,
   useSubmit,
+  useFetcher
 } from "@remix-run/react";
 import invariant from "tiny-invariant";
 
-import { getPages, updateStory } from "../data";
+import { getStory, updateStory } from "../data";
 
 export const loader = async ({
   params,
 }: LoaderFunctionArgs) => {
   invariant(params.storyId, "Missing storyId param");
-  const pages = await getPages(params.storyId);
-  return json({ pages });
+  const story = await getStory(params.storyId);
+  if (story === null) {
+    throw new Response("Not Found", { status: 404 });
+  }
+  return json({ story });
 };
 
 export const action = async ({
@@ -36,56 +40,76 @@ export const action = async ({
 };
 
 export default function EditStory() {
-  const { pages } = useLoaderData<typeof loader>();
-  const navigation = useNavigation();
+  const { story } = useLoaderData<typeof loader>();
   const submit = useSubmit();
 
-  return (
-    <div class="flex">
-      <div id="sidebar">
-      <h1>gpt if</h1>
-      <nav>
-      {pages.length ? (
-          <ul>
-            {pages.map((page) => (
-              <li key={page.id}>
-                <NavLink
-                  className={({ isActive, isPending }) =>
-                    isActive
-                      ? "active"
-                      : isPending
-                      ? "pending"
-                      : ""
-                  }
-                  to={`page/${page.id}`}
-                >
-                  {page.prompt ? (
-                    <>
-                      {page.prompt}
-                    </>
-                  ) : (
-                    <i>No Prompt</i>
-                  )}{" "}
-                  </NavLink>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p>
-            <i>No pages</i>
-          </p>
-        )}
-      </nav>
-    </div>
+  const fetcher = useFetcher()
 
-    <div
-      className={
-        navigation.state === "loading" ? "loading" : ""
-      }
-      id="detail"
-    >
-      <Outlet />
-    </div>
+
+  //let content=page.text;
+  
+
+  
+
+  return (
+    <div className="flex">
+    <div>
+      <fetcher.Form key={story.id} id="story-form" method="post"
+      onChange={(event) => fetcher.submit(event.currentTarget)}
+      >
+        <p>
+          <span>Title</span>
+          <input
+            defaultValue={story.title}
+            aria-label="Title"
+            name="title"
+            type="text"
+            placeholder="Title"
+          />
+        </p>
+        <label>
+          <span>System Prompt</span>
+          <textarea
+            name="systemPrompt"
+            placeholder="text"
+            type="text"
+            defaultValue = {story?.systemPrompt}
+            readonly
+          ></textarea>
+        </label>      
+        
+        <p>
+          <button type="submit">
+          {fetcher.state === "submitting"
+            ? "Saving…"
+            : "Save"}
+        </button>
+        </p>
+        
+      </fetcher.Form>
+      <Form id="story-form-delete" method="post" action="delete"
+        onSubmit={(event) => {
+          if (!confirm("Delete this story?"))
+            event.preventDefault();
+        }}
+      
+      >
+        <p>
+          <button type="submit">Delete</button>
+        </p>
+      </Form>
+
+      </div>
+      <div id="sidebar">
+
+      <nav>
+      <ul>
+          <li>
+            <Link to={"page/"+story?.rootPageId}>Start</Link>
+          </li>
+      </ul>
+      </nav>
+      </div>
   </div>
-  );
+);
 }

@@ -1,6 +1,16 @@
+const DEFAULT_SYSTEM_PROMPT = 
+`You are a helpful writing assistant, helping me write a story. We will take turns writing a story\
+ together. I will write a paragraph, and then you will write a paragraph. We will continue this way\
+ until the story is complete. Your writing style is clear and concise, but imaginative and colourful.\
+ If I wrap text in [brackets], it means that I am providing instructions for how the story will continue.\
+ Please follow these instructions when writing your paragraph.
+ The setting of the story is a medieval forest. The genre is fantasy. The main character is a skilled hunter.`;
+
+
 ////////////////////////////////////////////////////////////////////////////////
 // an in-memory database of pages
 ////////////////////////////////////////////////////////////////////////////////
+
 
 // @ts-expect-error - no types, but it's a tiny function
 import invariant from "tiny-invariant";
@@ -14,11 +24,12 @@ type PageMutation = {
 export type PageRecord = PageMutation & {
   id: string;
   createdAt: string;
-  parentId: string;
+  parentId?: string;
 };
 
 type StoryMutation = {
   title?: string;
+  systemPrompt?: string;
 };
 
 export type StoryRecord = StoryMutation &{
@@ -46,7 +57,6 @@ const pagesDb = {
     const story = pagesDb.records[storyId];
     invariant(story, `No story found for ${storyId}`);
 
-    console.log("GET", story);
     return story[id] || null;
   },
 
@@ -57,7 +67,7 @@ const pagesDb = {
     return Object.values(story).filter((page) => page.parentId === id);
   },
 
-  async create(storyId:string, parentId:string, values: PageMutation): Promise<PageRecord> {
+  async create(storyId:string, parentId?:string, values?: PageMutation): Promise<PageRecord> {
     let story = pagesDb.records[storyId];
     if (!story) {
       pagesDb.records[storyId] = {};
@@ -103,9 +113,12 @@ const storiesDb = {
     const id = Math.random().toString(36).substring(2, 9);
     const createdAt = new Date().toISOString();
     
-    const rootPage = await pagesDb.create(id,null);
+    const rootPage = await pagesDb.create(id);
     const rootPageId = rootPage.id;
+    const systemPrompts = DEFAULT_SYSTEM_PROMPTS;
     const newStory = { id, createdAt, rootPageId, ...values };
+
+
     storiesDb.records[id] = newStory;
     return newStory;
   },
@@ -202,8 +215,8 @@ export async function deleteStory(id: string) {
 }
 
 
-const fakeStory0 = await storiesDb.create({title:"A sci fi adventure"});
-const fakeStory1 = await storiesDb.create({title:"A fantasy adventure"});
+const fakeStory0 = await storiesDb.create({title:"A sci fi adventure", systemPrompt:DEFAULT_SYSTEM_PROMPT});
+const fakeStory1 = await storiesDb.create({title:"A fantasy adventure", systemPrompt:DEFAULT_SYSTEM_PROMPT});
 
 //update root page
 await updatePage(fakeStory0.id, fakeStory0.rootPageId, {prompt:"Root page", text:"the root page text"});
@@ -225,6 +238,3 @@ await updatePage(fakeStory0.id, fakeStory0.rootPageId, {prompt:"Root page", text
 ].forEach((page) => {
   createPage(fakeStory0.id, fakeStory0.rootPageId, page);
 });
-
-console.log(storiesDb);
-console.log(pagesDb);

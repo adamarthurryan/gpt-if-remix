@@ -292,6 +292,10 @@ html {
     width:1000px;
     height:300px;
   }
+  #story-form textarea {
+    width:1000px;
+    height:300px;
+  }
   
   #page-form p:last-child {
     display: flex;

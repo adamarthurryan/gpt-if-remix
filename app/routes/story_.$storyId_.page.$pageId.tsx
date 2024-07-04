@@ -5,8 +5,11 @@ import type {
   import { json, redirect } from "@remix-run/node";
   import { Form, Link, useLoaderData, useNavigate, useFetcher} from "@remix-run/react";
 
+  import { useRef } from "react";
   import invariant from "tiny-invariant";
   
+  import { useEventSource } from "remix-utils/sse/react";
+
   import { getPage, getPageChildren, updatePage } from "../data";
   
   export const loader = async ({
@@ -39,10 +42,22 @@ import type {
     const navigate = useNavigate();
     const fetcher = useFetcher()
 
+    let textRef = useRef();
+
+    function generate() {
+      if (textRef.current!=null)
+        textRef.current.value="";
+    }
+
+    //let content=page.text;
+    
+    let content = useEventSource(`../page/${page.id}/generate`, {event:"content" });
+
+    //onChange={(event) => fetcher.submit(event.currentTarget)}
     return (
       <div>
         <fetcher.Form key={page.id} id="page-form" method="post"
-          onChange={(event) => fetcher.submit(event.currentTarget)}
+          
         >
           <p>
             <span>Prompt</span>
@@ -54,24 +69,26 @@ import type {
               placeholder="Prompt"
             />
           </p>
-          <button onClick={()=>generate()}>Generate</button>
+          <button onClick={generate}>Generate</button>
           <label>
             <span>Text</span>
             <textarea
-              defaultValue={page.text}
+              ref = {textRef}
               name="text"
               placeholder="text"
               type="text"
-            />
+              value = {content?content:""}
+              readonly
+            ></textarea>
           </label>      
           
-          {/*<p>
+          <p>
             <button type="submit">
             {fetcher.state === "submitting"
               ? "Saving…"
               : "Save"}
           </button>
-          </p>*/}
+          </p>
           
         </fetcher.Form>
         <Form id="page-form-delete" method="post" action="delete"
@@ -129,6 +146,3 @@ import type {
   }
   
 
-  function generate() {
-    
-  }
