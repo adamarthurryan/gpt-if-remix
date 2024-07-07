@@ -8,8 +8,12 @@ const DEFAULT_SYSTEM_PROMPT =
 
 
 ////////////////////////////////////////////////////////////////////////////////
-// an in-memory database of pages
+// a simple lowdb database pages and stories
+// this only supports a single user - multiple sessions will overwrite one another
 ////////////////////////////////////////////////////////////////////////////////
+
+import { JSONFilePreset } from "lowdb/node";
+const db = await JSONFilePreset<Database>('db.json', { stories: {}, pages:{} })
 
 
 // @ts-expect-error - no types, but it's a tiny function
@@ -38,12 +42,18 @@ export type StoryRecord = StoryMutation &{
   createdAt: string;
 }
 
+type Database = {
+  stories: Record<string, StoryRecord>;
+  pages: Record<string, Record<string, PageRecord>>;
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // This is just a fake DB table. In a real app you'd be talking to a real db or
 // fetching from an existing API.
 const pagesDb = {
-  records: {} as Record<string, Record<string, PageRecord>>,
+  records: db.data.pages,// as Record<string, Record<string, PageRecord>>,
 
+  
   async getAll(storyId:string): Promise<PageRecord[]> {
     const story = pagesDb.records[storyId];
     invariant(story, `No story found for ${storyId}`);
@@ -78,6 +88,9 @@ const pagesDb = {
     const createdAt = new Date().toISOString();
     const newPage = { id, createdAt, parentId, ...values };
     story[id] = newPage;
+
+    db.write();
+
     return newPage;
   },
 
@@ -87,17 +100,23 @@ const pagesDb = {
 
     const updatedPage = { ...page, ...values };
     pagesDb.records[storyId][id] = updatedPage;
+
+    db.write();
+
     return updatedPage;
   },
 
   destroy(storyId:string, id: string): null {
     delete pagesDb.records[storyId][id];
+
+    db.write();
+
     return null;
   },
 };
 
 const storiesDb = {
-  records: {} as Record<string, StoryRecord>,
+  records: db.data.stories as Record<string, StoryRecord>,
 
   async getAll(): Promise<StoryRecord[]> {
     return Object.keys(storiesDb.records)
@@ -117,8 +136,10 @@ const storiesDb = {
     const rootPageId = rootPage.id;
     const newStory = { id, createdAt, rootPageId, ...values };
 
-
     storiesDb.records[id] = newStory;
+
+    db.write();
+
     return newStory;
   },
 
@@ -127,11 +148,21 @@ const storiesDb = {
     invariant(story, `No contact found for ${id}`);
     const updatedStory = { ...story, ...values };
     storiesDb.records[id] = updatedStory;
+
+    db.write();
+
     return updatedStory;
   },
 
   destroy(id: string): null {
     delete storiesDb.records[id];
+    
+    //also delete associated pages
+    Object.values(pagesDb.records).filter((page) => page.storyId === id).forEach((page) => {
+      delete pagesDb.records[page.id];
+    });
+
+    db.write();
     return null;
   },
 };
@@ -231,9 +262,11 @@ export async function deleteStory(id: string) {
   storiesDb.destroy(id);
 }
 
+/*
 
 const fakeStory0 = await storiesDb.create({title:"An adventure", systemPrompt:DEFAULT_SYSTEM_PROMPT});
 
 //update root page
 await updatePage(fakeStory0.id, fakeStory0.rootPageId, {prompt:"The adventure begins", text:""});
 
+*/

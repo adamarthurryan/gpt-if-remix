@@ -97,7 +97,7 @@ import StoryView from "~/components/StoryView";
               placeholder="text"
               type="text"
               value = {content?content:""}
-              readonly
+              readOnly
             ></textarea>
           </label>      
  */ }
