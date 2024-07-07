@@ -15,7 +15,8 @@ export default async function* openaiRequest(model: string, messages: Message[],
     const config = {
         model,
         stream: true,
-        messages
+        messages, 
+        stop:"",
     };
     
     const completion = await openai.chat.completions.create(config);

@@ -10,19 +10,24 @@ import type {
   
   import { useEventSource } from "remix-utils/sse/react";
 
-  import { getPage, getPageChildren, updatePage } from "../data";
+  import { getPageAncestors, getPage, getPageChildren, updatePage, getStory } from "../data";
+import StoryView from "~/components/StoryView";
   
   export const loader = async ({
     params,
   }: LoaderFunctionArgs) => {
     invariant(params.storyId, "Missing storyId param");
     invariant(params.pageId, "Missing pageId param");
+    const ancestors = await getPageAncestors(params.storyId, params.pageId);
+
     const page = await getPage(params.storyId, params.pageId);
     const children = await getPageChildren(params.storyId, params.pageId);
     if (!page) {
       throw new Response("Not Found", { status: 404 });
     }
-    return json({ page, children });
+
+    const story = getStory(params.storyId);
+    return json({ ancestors, page, children, story });
   };
   
   export const action = async ({
@@ -38,24 +43,25 @@ import type {
   };
   
   export default function EditPage() {
-    const { page, children } = useLoaderData<typeof loader>();
+    const { ancestors, page, children, story } = useLoaderData<typeof loader>();
     const navigate = useNavigate();
     const fetcher = useFetcher()
 
     let textRef = useRef();
 
-    function generate() {
-      if (textRef.current!=null)
-        textRef.current.value="";
-    }
-
     //let content=page.text;
     
     let content = useEventSource(`../page/${page.id}/generate`, {event:"content" });
+    content = content?.replaceAll("\\n", "\n");
+    let contentLines = content?.split("\n");
+    console.log(contentLines)
 
     //onChange={(event) => fetcher.submit(event.currentTarget)}
     return (
+      <div className="flex">
       <div>
+        <StoryView ancestors={ancestors} currentText={content} currentPrompt={page.prompt} story={story}/>
+
         <fetcher.Form key={page.id} id="page-form" method="post"
           
         >
@@ -69,7 +75,20 @@ import type {
               placeholder="Prompt"
             />
           </p>
-          <button onClick={generate}>Generate</button>
+        </fetcher.Form>
+        <fetcher.Form  id="page-form-reset" method="post" action="reset">
+          <button type="submit">Reset</button>
+          </fetcher.Form>
+          {
+            contentLines ? 
+            contentLines.map((line, index) => (
+              <p>
+                {line}
+              </p>
+            ))
+            : <p key="null"></p>
+          }
+{/*
           <label>
             <span>Text</span>
             <textarea
@@ -81,16 +100,17 @@ import type {
               readonly
             ></textarea>
           </label>      
-          
-          <p>
+ */ }
+
+{/*          <p>
             <button type="submit">
             {fetcher.state === "submitting"
               ? "Saving…"
               : "Save"}
           </button>
           </p>
-          
-        </fetcher.Form>
+*/}          
+{/*
         <Form id="page-form-delete" method="post" action="delete"
           onSubmit={(event) => {
             if (!confirm("Delete this page?"))
@@ -102,13 +122,15 @@ import type {
             <button type="submit">Delete</button>
           </p>
         </Form>
+*/}
         <nav>
+          
         {children.length ? (
             <ul>
               {children.map((page) => (
                 <li key={page.id}>
                   <Link
-                    to={`../page/${page.id}`}
+                    to={`../${page.id}`}
                   >
                     {page.prompt ? (
                       <>
@@ -123,7 +145,7 @@ import type {
             </ul>
           ) : null}
           </nav>
-          <Form id="page-form-new-prompt" method="post" action="new">
+          <Form id="page-form-new-prompt" key={page.id} method="post" action="new">
           <p>
             <input
               defaultValue=""
@@ -137,10 +159,10 @@ import type {
             <button type="submit">Create</button>
           </p>
           <p>
-            <button type="button" onClick={()=>navigate("../page/"+page.parentId)}>Back</button>
+            <button type="button" onClick={()=>navigate("../"+page.parentId)}>Back</button>
           </p>
         </Form>
-
+        </div>
       </div>      
     );
   }

@@ -8,6 +8,9 @@ import createPrompt from "../util/prompt";
 
 import openaiRequest from "../util/openai";
 
+
+const sanitize = (text) => text.replaceAll("\n", "\\n");
+
 export async function loader({ request, params }: LoaderFunctionArgs) {
 	invariant(params.storyId, "Missing storyId param");
     invariant(params.pageId, "Missing pageId param");
@@ -25,7 +28,8 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
 	//!!! is this necessary or can we just return the text?
 	if (page.text) {
 		return eventStream(request.signal, function setup(send) {
-			send({ event: "content", data: page.text });
+
+			send({ event: "content", data: sanitize(page.text) });
 		});
 	}
 
@@ -36,18 +40,19 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
 		});
 	}
 
-	const messages = await createPrompt(params.storyId, page.prompt, story.systemPrompt, page.parentId);
+	const messages = await createPrompt(story, page);
 
 	return eventStream(request.signal, function setup(send) {
 		async function run() {
 			let content = "";
-			for await (const chunk of openaiRequest("gpt-4", messages, request.signal)) {
-				console.log(chunk);
+			for await (const chunk of openaiRequest("gpt-4-turbo", messages, request.signal)) {
 				content += chunk;
-				send({ event: "content", data: content });
+
+				send({ event: "content", data: sanitize(content) });
 			}
 			let mutation={text:content};
 			updatePage(params.storyId, params.pageId, mutation);
+			console.log(content);
 		}
 
 		run();

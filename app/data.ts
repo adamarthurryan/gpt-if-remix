@@ -115,7 +115,6 @@ const storiesDb = {
     
     const rootPage = await pagesDb.create(id);
     const rootPageId = rootPage.id;
-    const systemPrompts = DEFAULT_SYSTEM_PROMPTS;
     const newStory = { id, createdAt, rootPageId, ...values };
 
 
@@ -163,10 +162,28 @@ export async function getPage(storyId:string, id: string) {
   return pagesDb.get(storyId, id);
 }
 
+export async function getPageAncestors(storyId: string, id: string) {
+  let ancestors = [];
+  let page = await pagesDb.get(storyId, id);
+  if (!page) {
+    throw new Error(`No page found for ${id}`);
+  }
+
+  while (page.parentId) {
+    page = await pagesDb.get(storyId, page.parentId);
+    if (!page) {
+      throw new Error(`No page found for ${page.parentId}`);
+    }
+  
+    ancestors.unshift(page);
+  }
+  return ancestors;
+}
+
 export async function updatePage(storyId:string, id: string, updates: PageMutation) {
   const page = await pagesDb.get(storyId, id);
   if (!page) {
-    throw new Error(`No story found for ${id}`);
+    throw new Error(`No page found for ${id}`);
   }
   await pagesDb.set(storyId, id, { ...page, ...updates });
   return page;
@@ -215,26 +232,8 @@ export async function deleteStory(id: string) {
 }
 
 
-const fakeStory0 = await storiesDb.create({title:"A sci fi adventure", systemPrompt:DEFAULT_SYSTEM_PROMPT});
-const fakeStory1 = await storiesDb.create({title:"A fantasy adventure", systemPrompt:DEFAULT_SYSTEM_PROMPT});
+const fakeStory0 = await storiesDb.create({title:"An adventure", systemPrompt:DEFAULT_SYSTEM_PROMPT});
 
 //update root page
-await updatePage(fakeStory0.id, fakeStory0.rootPageId, {prompt:"Root page", text:"the root page text"});
+await updatePage(fakeStory0.id, fakeStory0.rootPageId, {prompt:"The adventure begins", text:""});
 
-//create child pages
-[
-  {
-    prompt:"Option A",
-    text:"Just a test"
-  },
-  {
-    prompt:"Option B",
-    text:"Just a test"
-  },
-  {
-    prompt:"Option C",
-    text:"Just a test"
-  },
-].forEach((page) => {
-  createPage(fakeStory0.id, fakeStory0.rootPageId, page);
-});

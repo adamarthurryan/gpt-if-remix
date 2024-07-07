@@ -37,7 +37,7 @@ export const action = async ({
     const page = await createEmptyPage(params.storyId, story?.rootPageId);
     return redirect(`/story/${story.id}/page/${page.id}`);
   };
-
+/*
   export default function Pages() {
     const { pages } = useLoaderData<typeof loader>();
     const navigation = useNavigation();
@@ -93,4 +93,4 @@ export const action = async ({
     </div>
     );
   }
-  
+  */
