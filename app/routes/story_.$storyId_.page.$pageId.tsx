@@ -54,16 +54,14 @@ import StoryView from "~/components/StoryView";
     let content = useEventSource(`../page/${page.id}/generate`, {event:"content" });
     content = content?.replaceAll("\\n", "\n");
     let contentLines = content?.split("\n");
-    console.log(contentLines)
 
-    //onChange={(event) => fetcher.submit(event.currentTarget)}
     return (
       <div className="flex">
       <div>
         <StoryView ancestors={ancestors} currentText={content} currentPrompt={page.prompt} story={story}/>
 
-        <fetcher.Form key={page.id} id="page-form" method="post"
-          
+        <fetcher.Form key={page.id+"-prompt"} id="page-form" method="post"
+          onChange={(event) => fetcher.submit(event.currentTarget)}
         >
           <p>
             <span>Prompt</span>
@@ -76,13 +74,13 @@ import StoryView from "~/components/StoryView";
             />
           </p>
         </fetcher.Form>
-        <fetcher.Form  id="page-form-reset" method="post" action="reset">
+        <Form  id="page-form-reset" method="post" action="reset">
           <button type="submit">Reset</button>
-          </fetcher.Form>
+        </Form>
           {
             contentLines ? 
             contentLines.map((line, index) => (
-              <p>
+              <p key={line.slice(0,15)}>
                 {line}
               </p>
             ))
@@ -128,7 +126,7 @@ import StoryView from "~/components/StoryView";
         {children.length ? (
             <ul>
               {children.map((page) => (
-                <li key={page.id}>
+                <li key={page.id+"-prompts"}>
                   <Link
                     to={`../${page.id}`}
                   >
@@ -145,7 +143,7 @@ import StoryView from "~/components/StoryView";
             </ul>
           ) : null}
           </nav>
-          <Form id="page-form-new-prompt" key={page.id} method="post" action="new">
+          <Form id="page-form-new-prompt" key={page.id} method="post" action="new" preventScrollReset>
           <p>
             <input
               defaultValue=""
@@ -159,7 +157,11 @@ import StoryView from "~/components/StoryView";
             <button type="submit">Create</button>
           </p>
           <p>
-            <button type="button" onClick={()=>navigate("../"+page.parentId)}>Back</button>
+            {
+            (page.parentId)?
+            <button type="button"><Link preventScrollReset to={`../${page.parentId}`}>Back</Link></button>
+            : <span></span>
+            }
           </p>
         </Form>
         </div>

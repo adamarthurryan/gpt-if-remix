@@ -40,7 +40,7 @@ export const action = async () => {
       <div id="sidebar">
       <h1><Link to="/">gpt if</Link></h1>
       <div>
-        <Form method="post" action="stories">
+        <Form method="post">
           <button type="submit">New Story</button>
         </Form>
       </div>

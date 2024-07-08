@@ -74,7 +74,6 @@ export default function EditStory() {
             placeholder="text"
             type="text"
             defaultValue = {story?.systemPrompt}
-            readOnly
           ></textarea>
         </label>      
         

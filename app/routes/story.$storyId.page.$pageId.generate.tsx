@@ -45,7 +45,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
 	return eventStream(request.signal, function setup(send) {
 		async function run() {
 			let content = "";
-			for await (const chunk of openaiRequest("gpt-4-turbo", messages, request.signal)) {
+			for await (const chunk of openaiRequest("gpt-4o", messages, request.signal)) {
 				content += chunk;
 
 				send({ event: "content", data: sanitize(content) });

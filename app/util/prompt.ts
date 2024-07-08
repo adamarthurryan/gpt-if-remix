@@ -10,8 +10,7 @@ export default async function createPrompt(story: StoryRecord, page: PageRecord)
 
     let  messages: Message[] = [{role:"system", content:story.systemPrompt}];
         
-    const pages = ancestors.concat(page);
-    for (const page of pages) {
+    for (const page of ancestors) {
         messages.push({role:"user", content:page.prompt});
         messages.push({role: "assistant", content:page.text});
     }

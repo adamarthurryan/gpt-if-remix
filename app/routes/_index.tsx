@@ -20,54 +20,6 @@ import { getStories } from "../data";
 
 export const loader = async ({
 }: LoaderFunctionArgs) => {
-  const stories = await getStories();
-  return json({ stories });
+  return redirect("/story");
 };
 
-export default function Index() {
-  const { stories } = useLoaderData<typeof loader>();
-  const navigation = useNavigation();
-  const submit = useSubmit();
-
-  return (
-    <div id="sidebar">
-    <h1><Link to="/">gpt if</Link></h1>
-    <div>
-      <Form method="post" action="stories">
-        <button type="submit">New Story</button>
-      </Form>
-    </div>
-    <nav>
-    {stories.length ? (
-        <ul>
-          {stories.map((story) => (
-            <li key={story.id}>
-              <NavLink
-                className={({ isActive, isPending }) =>
-                  isActive
-                    ? "active"
-                    : isPending
-                    ? "pending"
-                    : ""
-                }
-                to={`story/${story.id}`}
-              >
-                {story.title ? (
-                  <>
-                    {story.title}
-                  </>
-                ) : (
-                  <i>No Title</i>
-                )}{" "}
-                </NavLink>
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <p>
-          <i>No contacts</i>
-        </p>
-      )}
-    </nav>
-    </div>  );
-}
