@@ -3,13 +3,12 @@ import type { StoryRecord, PageRecord } from "../data";
 
 export default function StoryView({story, ancestors, currentText, currentPrompt}) {
     return (
-        <div>
-            <h1>{story.title}</h1>
+        <div >
             {
                 ancestors.map((page) => {
                     return (
                         <div key={page.id}>
-                            <h4>{page.prompt}</h4>
+                            <p className="em">&gt; {page.prompt}</p>
                             {page.text ? <PageView text={page.text}/> : <p></p>}
                         </div>
                     );

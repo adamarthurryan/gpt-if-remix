@@ -7,6 +7,8 @@ import { createEmptyStory } from "../data";
 import invariant from "tiny-invariant";
 import { json, redirect } from "@remix-run/node";
 
+import StoriesNav from "~/components/StoriesNav";
+
   
 import { 
     Form,
@@ -18,6 +20,7 @@ import {
     useSubmit,
   } from "@remix-run/react";
   import { getStories } from "../data";
+import StoriesNav from "~/components/StoriesNav";
 
 export const loader = async ({
 }: LoaderFunctionArgs) => {
@@ -44,32 +47,11 @@ export const action = async () => {
           <button type="submit">New Story</button>
         </Form>
       </div>
-      <nav>
-          <ul>
-            {stories.map((story) => (
-              <li key={story.id}>
-                <NavLink
-                  className={({ isActive, isPending }) =>
-                    isActive
-                      ? "active"
-                      : isPending
-                      ? "pending"
-                      : ""
-                  }
-                  to={`${story.id}`}
-                >
-                  {story.title ? (
-                    <>
-                      {story.title}
-                    </>
-                  ) : (
-                    <i>No Title</i>
-                  )}{" "}
-                  </NavLink>
-              </li>
-            ))}
-          </ul>
-      </nav>
+
+      <div className="sidebar">
+        <StoriesNav stories={stories} />
+      </div>
+
       </div>
     <Outlet />
 

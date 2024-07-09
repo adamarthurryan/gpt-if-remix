@@ -13,13 +13,14 @@ import {
 
 } from "@remix-run/react";
 
-import "./tailwind.css";
-
 import appStylesHref from "./app.css?url";
+import tailwindStylesheet from "~/tailwind.css?url";
 
 
 export const links: LinksFunction = () => [
   { rel: "stylesheet", href: appStylesHref },
+  { rel: "stylesheet", href: tailwindStylesheet },
+
 ];
 
 

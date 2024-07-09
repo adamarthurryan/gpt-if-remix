@@ -15,17 +15,20 @@ import {
 } from "@remix-run/react";
 import invariant from "tiny-invariant";
 
-import { getStory, updateStory } from "../data";
+import { getChapters, getStory, updateStory } from "../data";
+import ChaptersNav from "../components/ChaptersNav";
+import StoriesNav from "~/components/StoriesNav";
 
 export const loader = async ({
   params,
 }: LoaderFunctionArgs) => {
   invariant(params.storyId, "Missing storyId param");
   const story = await getStory(params.storyId);
+  const chapters = await getChapters(params.storyId);
   if (story === null) {
     throw new Response("Not Found", { status: 404 });
   }
-  return json({ story });
+  return json({ story, chapters });
 };
 
 export const action = async ({
@@ -40,16 +43,11 @@ export const action = async ({
 };
 
 export default function EditStory() {
-  const { story } = useLoaderData<typeof loader>();
+  const { story, chapters } = useLoaderData<typeof loader>();
   const submit = useSubmit();
 
   const fetcher = useFetcher()
-
-
-  //let content=page.text;
-  
-
-  
+ 
 
   return (
     <div className="flex">
@@ -100,15 +98,9 @@ export default function EditStory() {
 
       </div>
       <div id="sidebar">
-
-      <nav>
-      <ul>
-          <li>
-            <Link to={"page/"+story?.rootPageId}>Start</Link>
-          </li>
-      </ul>
-      </nav>
+          <ChaptersNav chapters={chapters} story={story} />
       </div>
+
   </div>
 );
 }

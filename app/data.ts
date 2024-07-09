@@ -13,7 +13,7 @@ const DEFAULT_SYSTEM_PROMPT =
 ////////////////////////////////////////////////////////////////////////////////
 
 import { JSONFilePreset } from "lowdb/node";
-const db = await JSONFilePreset<Database>('db.json', { stories: {}, pages:{} })
+const db = await JSONFilePreset<Database>('db.json', { stories: {}, pages:{}, chapters:{} })
 
 
 // @ts-expect-error - no types, but it's a tiny function
@@ -27,6 +27,7 @@ type PageMutation = {
 
 export type PageRecord = PageMutation & {
   id: string;
+  storyId: string;
   createdAt: string;
   parentId?: string;
 };
@@ -42,14 +43,23 @@ export type StoryRecord = StoryMutation &{
   createdAt: string;
 }
 
+type ChapterMutation = {
+  title?: string;
+  synopsis?: string;
+}
+
+export type ChapterRecord = ChapterMutation &{
+  pageId: string;
+  storyId: string;
+  createdAt: string;
+}
+
 type Database = {
   stories: Record<string, StoryRecord>;
   pages: Record<string, Record<string, PageRecord>>;
+  chapters: Record<string, Record<string, ChapterRecord>>;
 }
 
-////////////////////////////////////////////////////////////////////////////////
-// This is just a fake DB table. In a real app you'd be talking to a real db or
-// fetching from an existing API.
 const pagesDb = {
   records: db.data.pages,// as Record<string, Record<string, PageRecord>>,
 
@@ -86,7 +96,7 @@ const pagesDb = {
 
     const id = Math.random().toString(36).substring(2, 9);
     const createdAt = new Date().toISOString();
-    const newPage = { id, createdAt, parentId, ...values };
+    const newPage = { id, storyId, createdAt, parentId, ...values };
     story[id] = newPage;
 
     db.write();
@@ -134,6 +144,9 @@ const storiesDb = {
     
     const rootPage = await pagesDb.create(id);
     const rootPageId = rootPage.id;
+
+    await chaptersDb.create(id, rootPageId);
+
     const newStory = { id, createdAt, rootPageId, ...values };
 
     storiesDb.records[id] = newStory;
@@ -167,7 +180,64 @@ const storiesDb = {
   },
 };
 
+const chaptersDb = {
+  records: db.data.chapters,// as Record<string, Record<string, ChapterRecord>>,
 
+  
+  async getAll(storyId:string): Promise<ChapterRecord[]> {
+    const story = chaptersDb.records[storyId];
+    if (!story)
+      return [];
+
+    return Object.keys(chaptersDb.records[storyId])
+      .map((key) => chaptersDb.records[storyId][key])
+      .sort(sortBy("-createdAt"));
+  },
+
+  async get(storyId:string, id: string): Promise<ChapterRecord | null> {
+    const chapters = chaptersDb.records[storyId];
+    if (!chapters)
+      return null;
+    
+    return chapters[id] || null;
+  },
+
+  async create(storyId:string, pageId:string, values?: ChapterMutation): Promise<ChapterRecord> {
+    let story = chaptersDb.records[storyId];
+    if (!story) {
+      chaptersDb.records[storyId] = {};
+      story = chaptersDb.records[storyId];
+    }
+
+    const createdAt = new Date().toISOString();
+    const newChapter = { storyId, pageId, createdAt, ...values };
+    story[pageId] = newChapter;
+
+    db.write();
+
+    return newChapter;
+  },
+
+  async set(storyId:string, id: string, values: ChapterMutation): Promise<ChapterRecord> {
+    const page = await chaptersDb.get(storyId, id);
+    invariant(page, `No page found for ${id}`);
+
+    const updatedPage = { ...page, ...values };
+    chaptersDb.records[storyId][id] = updatedPage;
+
+    db.write();
+
+    return updatedPage;
+  },
+
+  destroy(storyId:string, id: string): null {
+    delete chaptersDb.records[storyId][id];
+
+    db.write();
+
+    return null;
+  },
+};
 ////////////////////////////////////////////////////////////////////////////////
 // Handful of helper functions to be called from route loaders and actions
 export async function getPages(storyId:string) {
@@ -262,6 +332,68 @@ export async function deleteStory(id: string) {
   storiesDb.destroy(id);
 }
 
+
+
+export async function getChapters(storyId:string) {
+  let pages = await chaptersDb.getAll(storyId);
+  
+  return pages;//.sort(sortBy("last", "createdAt"));
+}
+
+export async function getChapterPages(storyId:string, pageId:string) {
+  let ancestors = await getPageAncestors(storyId, pageId);
+  let chapter = [];
+  
+  for (let i=ancestors.length-1; i>=0; i--) {
+    chapter.unshift(ancestors[i]);
+    if (await getChapter(storyId,ancestors[i].id)) {
+      break;
+    }
+  }
+  return chapter;
+}
+
+export async function getChapterForPage(storyId:string, pageId:string) {
+  let chapter = await getChapter(storyId, pageId);
+  if (chapter)
+    return chapter;
+
+  let ancestors = await getPageAncestors(storyId, pageId);
+  
+  for (let i=ancestors.length-1; i>=0; i--) {
+    chapter = await getChapter(storyId,ancestors[i].id);
+    if (chapter) {
+      return chapter;
+    }
+  }
+  throw new Error("Data error: every page should be part of at least one chapter");
+}
+
+export async function createEmptyChapter(storyId:string, pageId:string) {
+  const page = await chaptersDb.create(storyId, pageId, {});
+  return page;
+}
+export async function createChapter(storyId:string, pageId:string, mutation: ChapterMutation) {
+  const page = await chaptersDb.create(storyId, pageId, mutation);
+  return page;
+}
+
+export async function getChapter(storyId:string, id: string) {
+  return chaptersDb.get(storyId, id);
+}
+
+export async function updateChapter(storyId:string, pageId: string, updates: ChapterMutation) {
+  const chapter = await chaptersDb.get(storyId, pageId);
+  if (!chapter) {
+    throw new Error(`No chapter found for ${pageId}`);
+  }
+  await chaptersDb.set(storyId, pageId, { ...chapter, ...updates });
+  return chapter;
+}
+
+export async function deleteChapter(storyId:string, id: string) {
+  chaptersDb.destroy(storyId, id);
+}
 /*
 
 const fakeStory0 = await storiesDb.create({title:"An adventure", systemPrompt:DEFAULT_SYSTEM_PROMPT});
