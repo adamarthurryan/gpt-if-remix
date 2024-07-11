@@ -1,4 +1,4 @@
-import type Message from "./openai.server";
+import type { openaiRequest as Message } from "./openai.server";
 
 import { eventStream } from "remix-utils/sse/server";
 
@@ -8,7 +8,7 @@ import {ChapterRecord, PageRecord, StoryRecord, getPage, getStory, updatePage} f
 
 import {createPromptChapter} from "./prompt.server";
 
-import openaiRequest from "./openai.server";
+import { openaiRequest } from "./openai.server";
 
 type Loader = {
     content: string;

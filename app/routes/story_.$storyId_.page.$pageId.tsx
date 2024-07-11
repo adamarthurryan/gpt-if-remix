@@ -3,19 +3,21 @@ import type {
     LoaderFunctionArgs,
 } from "@remix-run/node";
 import { json, redirect } from "@remix-run/node";
-import { Form, Link, useLoaderData, useNavigate, useFetcher} from "@remix-run/react";
+import { Form, Link, useLoaderData, useNavigate, useFetcher, Await, defer} from "@remix-run/react";
 
-import { useRef, useState } from "react";
+import { useRef, useState, Suspense } from "react";
 import invariant from "tiny-invariant";
 
 import { useEventSource } from "remix-utils/sse/react";
 import {useSubscribe} from "@remix-sse/client";
 
 import { getPageAncestors, getPage, getPageChildren, updatePage, getStory, getChapters, getChapterForPage, getChapterPages } from "../data";
+import { createPromptChapter } from "~/util/prompt.server";
 import StoryView from "~/components/StoryView";
 import ChaptersNav from "../components/ChaptersNav";
 import AlwaysScrollToBottom from "~/components/AlwaysScrollToBottom";
 import { isLoading, createLoaderStream } from "~/util/loader.server";
+import { openaiRequest, openaiRequestSync } from "~/util/openai.server";
 
 export const loader = async ({
   params,
@@ -30,23 +32,19 @@ export const loader = async ({
   const ancestors = await getChapterPages(params.storyId, params.pageId);
   const page = await getPage(params.storyId, params.pageId);
   const children = await getPageChildren(params.storyId, params.pageId);
+  
   if (!page) {
     throw new Response("Not Found", { status: 404 });
   }
 
-
-  //check if there is already a loader running for this page
-  let isPageLoading=isLoading(page.id)
-
-  //otherwise create a new loader if the page text is empty
-  if (!page.text && !isPageLoading) {
-    
-    //use a loader to get this page
-    createLoaderStream(story, chapter, page);
-    isPageLoading = true;
+  let content = page.text;
+  if (!page.text) {
+    const messages = await createPromptChapter(story, chapter, page);
+    content = await openaiRequestSync("gpt-4o", messages);
   }
+    
+  return defer({pageText:content, ancestors, page, children, story, chapters, chapter, isPageLoading:true});
 
-  return json({ ancestors, page, children, story, chapters, chapter, isPageLoading });
 };
 
 export const action = async ({
@@ -62,7 +60,7 @@ export const action = async ({
 };
 
 export default function EditPage() {
-  const { ancestors, page, children, story, chapter, chapters, isPageLoading } = useLoaderData<typeof loader>();
+  const { pageText, ancestors, page, children, story, chapter, chapters, isPageLoading } = useLoaderData<typeof loader>();
   const navigate = useNavigate();
   const fetcher = useFetcher()
 
@@ -105,11 +103,18 @@ export default function EditPage() {
       </Form>
 
       <div className="prose w-full">
+        <Suspense fallback={<p>{isPageLoading ? "Loading..." : "Error"}</p>}>
+          <Await resolve={pageText}>
+            <Content content={pageText}/>
+          </Await>
+        </Suspense>
         {
+/*
           isPageLoading ?
             <StreamedPageContent page={page}/> :
             <Content content={page.text}/>
-        }
+*/
+          }
         <AlwaysScrollToBottom/>
 
       </div>
@@ -181,7 +186,7 @@ export default function EditPage() {
   );
 }
 
-
+/*
 function StreamedPageContent({page}) {
   //let chunk = useEventSource(`../page/${page.id}/stream`, {event:"content" });
   //console.log(chunk);
@@ -204,9 +209,14 @@ function StreamedPageContent({page}) {
     
   );
 }
+*/
 
 function Content({content}) {
 
+  if (typeof content != "string") {
+    content ="";
+  }
+  console.log("225", content);
   const contentLines = content?.split("\n");;
   return (
     <div> {

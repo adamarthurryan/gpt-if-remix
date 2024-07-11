@@ -7,11 +7,22 @@ const openai = new OpenAI({
 type Message = {role: string, content: string};
 
 
+export async function openaiRequestSync(model: string, messages: Message[]) {
+    let signal = new AbortController().signal;
+    let stream = await openaiRequest(model, messages, signal);
+    let chunks = [];
+    for await (const chunk of stream) {
+        chunks.push(chunk);
+        console.log(chunk);
+    }
+    console.log(chunks);
+    return chunks.join("");
+     
+}
+
 //request from the LLM and pipe the response to the callback function
 //callback will be given content chunks
-
-
-export default async function* openaiRequest(model: string, messages: Message[], signal: AbortSignal) {
+export async function* openaiRequest(model: string, messages: Message[], signal: AbortSignal) {
     const config = {
         model,
         stream: true,

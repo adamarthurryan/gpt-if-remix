@@ -1,4 +1,4 @@
-import type Message from "../util/openai.server";
+import type { openaiRequest as Message } from "../util/openai.server";
 import { eventStream } from "remix-utils/sse/server";
 import invariant from "tiny-invariant";
 
@@ -6,7 +6,7 @@ import {getChapterForPage, getPage, getStory, updatePage} from "../data";
 
 import {createPromptAll} from "../util/prompt.server";
 
-import openaiRequest from "../util/openai.server";
+import { openaiRequest } from "../util/openai.server";
 import { isLoading, getLoaderStream, createLoaderStream, getLoaderStreamTee } from "~/util/loader.server";
 
 import stringToStream from "string-to-stream";
