@@ -5,20 +5,25 @@ import type {
 import { json, redirect } from "@remix-run/node";
 import { Form, Link, useLoaderData, useNavigate, useFetcher} from "@remix-run/react";
 
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import invariant from "tiny-invariant";
 
 import { useEventSource } from "remix-utils/sse/react";
+import {useSubscribe} from "@remix-sse/client";
 
 import { getPageAncestors, getPage, getPageChildren, updatePage, getStory, getChapters, getChapterForPage, getChapterPages } from "../data";
 import StoryView from "~/components/StoryView";
 import ChaptersNav from "../components/ChaptersNav";
+import AlwaysScrollToBottom from "~/components/AlwaysScrollToBottom";
+import { isLoading, createLoaderStream } from "~/util/loader.server";
 
 export const loader = async ({
   params,
 }: LoaderFunctionArgs) => {
   invariant(params.storyId, "Missing storyId param");
   invariant(params.pageId, "Missing pageId param");
+
+  const story = await getStory(params.storyId);
 
   const chapters = await getChapters(params.storyId);
   const chapter = await getChapterForPage(params.storyId, params.pageId);
@@ -29,8 +34,19 @@ export const loader = async ({
     throw new Response("Not Found", { status: 404 });
   }
 
-  const story = await getStory(params.storyId);
-  return json({ ancestors, page, children, story, chapters, chapter });
+
+  //check if there is already a loader running for this page
+  let isPageLoading=isLoading(page.id)
+
+  //otherwise create a new loader if the page text is empty
+  if (!page.text && !isPageLoading) {
+    
+    //use a loader to get this page
+    createLoaderStream(story, chapter, page);
+    isPageLoading = true;
+  }
+
+  return json({ ancestors, page, children, story, chapters, chapter, isPageLoading });
 };
 
 export const action = async ({
@@ -46,35 +62,33 @@ export const action = async ({
 };
 
 export default function EditPage() {
-  const { ancestors, page, children, story, chapter, chapters } = useLoaderData<typeof loader>();
+  const { ancestors, page, children, story, chapter, chapters, isPageLoading } = useLoaderData<typeof loader>();
   const navigate = useNavigate();
   const fetcher = useFetcher()
 
   let textRef = useRef();
 
-
-  //let content=page.text;
-  
-  let content = useEventSource(`../page/${page.id}/generate`, {event:"content" });
-  content = content?.replaceAll("\\n", "\n");
-  let contentLines = content?.split("\n");
-
+  console.log(isPageLoading, page.text);
 
   return (
-    <div key={page.id} className="flex">
+    <div key={page.id} className="flex flex-row flex-wrap py-4">
+      <aside className="w-full sm:w-1/3 md:w-1/4 px-2">
+        <div className="sticky top-2">
+          <h1><Link to="/">gpt if</Link></h1>
+          <ChaptersNav chapters={chapters} story={story} />
+        </div>
+      </aside>
 
-    <div id="sidebar">
-      <ChaptersNav chapters={chapters} story={story} />
-    </div>
 
-    <div className="prose">
-      <h1>{story.title}</h1>
-      <h2>{chapter.title}</h2>
-      <StoryView ancestors={ancestors} currentText={content} currentPrompt={page.prompt} story={story}/>
-
+    <main role="main" className="prose w-full sm:w-2/3 md:w-3/4 pt-1 px-2">
+        <h1>{story.title}</h1>
+        <h2>{chapter.title}</h2>
+        <StoryView ancestors={ancestors} story={story}/>
+      
       <div className="pt-2"></div>
+  {//     onChange={(event) => fetcher.submit(event.currentTarget)}
+   }
       <fetcher.Form key={`${page.id}-prompt-edit`} id="page-form" method="post"
-        onChange={(event) => fetcher.submit(event.currentTarget)}
       >
         <p>
           <input
@@ -89,72 +103,39 @@ export default function EditPage() {
       <Form  id="page-form-reset" method="post" action="reset">
         <button type="submit">Reset</button>
       </Form>
-        {
-          contentLines ? 
-          contentLines.map((line, index) => (
-            <p key={line.slice(0,15)}>
-              {line}
-            </p>
-          ))
-          : <p key="null"></p>
-        }
-{/*
-        <label>
-          <span>Text</span>
-          <textarea
-            ref = {textRef}
-            name="text"
-            placeholder="text"
-            type="text"
-            value = {content?content:""}
-            readOnly
-          ></textarea>
-        </label>      
-*/ }
 
-{/*          <p>
-          <button type="submit">
-          {fetcher.state === "submitting"
-            ? "Saving…"
-            : "Save"}
-        </button>
-        </p>
-*/}          
-{/*
-      <Form id="page-form-delete" method="post" action="delete"
-        onSubmit={(event) => {
-          if (!confirm("Delete this page?"))
-            event.preventDefault();
-        }}
-      
-      >
-        <p>
-          <button type="submit">Delete</button>
-        </p>
-      </Form>
-*/}
-      <nav>
-        
-      {children.length ? (
-          <ul className="list-disc pl-6">
-            {children.map((page) => (
-              <li key={`${page.id}-prompts`}>
-                <Link
-                  to={`../${page.id}`}
-                >
-                  {page.prompt ? (
-                    <>
-                      {page.prompt}
-                    </>
-                  ) : (
-                    <i>No Prompt</i>
-                  )}{" "}
-                  </Link>
-              </li>
-            ))}
-          </ul>
-        ) : null}
+      <div className="prose w-full">
+        {
+          isPageLoading ?
+            <StreamedPageContent page={page}/> :
+            <Content content={page.text}/>
+        }
+        <AlwaysScrollToBottom/>
+
+      </div>
+    
+      <nav>        
+        {children.length ? (
+            <ul className="list-disc pl-6">
+              {children.map((page) => (
+                <li key={`${page.id}-prompts`}>
+                  <Link
+                    to={`../${page.id}`}
+                  >
+                    {page.prompt ? (
+                      <>
+                        {page.prompt}
+                      </>
+                    ) : (
+                      <i>No Prompt</i>
+                    )}{" "}
+                    </Link>
+                </li>
+              ))}
+            </ul>
+          ) : null}
         </nav>
+
         <Form id="page-form-new-prompt" key={`${page.id}-new-prompt`} method="post" action="new" preventScrollReset>
           <p>
             <input
@@ -167,35 +148,75 @@ export default function EditPage() {
             <button type="submit">Create</button>
           </p>
         </Form>
-          {(chapter.pageId != page.id)?
-            <Form id="page-form-new-chapter" key={`${page.id}-new-chapter`} method="post" action="chapter" preventScrollReset>
-              <p>
-                <input
-                  defaultValue=""
-                  aria-label="Title"
-                  name="title"
-                  type="text"
-                  placeholder="Title"
-                />
-                <button type="submit">Create Chapter</button>
-              </p>
-            </Form>
-          : (page.parentId)? <Form id="page-form-delete-chapter" key={`${page.id}-delete-chapter`} method="post" action="chapter/delete" preventScrollReset>
+
+        {(chapter.pageId != page.id)?
+          <Form id="page-form-new-chapter" key={`${page.id}-new-chapter`} method="post" action="chapter" preventScrollReset>
             <p>
-              <button type="submit">Delete Chapter</button>
+              <input
+                defaultValue=""
+                aria-label="Title"
+                name="title"
+                type="text"
+                placeholder="Title"
+              />
+              <button type="submit">Create Chapter</button>
             </p>
-            </Form>
+          </Form>
+        : (page.parentId)? <Form id="page-form-delete-chapter" key={`${page.id}-delete-chapter`} method="post" action="chapter/delete" preventScrollReset>
+          <p>
+            <button type="submit">Delete Chapter</button>
+          </p>
+          </Form>
+        : <span></span>
+
+        }
+
+        {(page.parentId)?
+          <button type="button"><Link preventScrollReset to={`../${page.parentId}`}>Back</Link></button>
           : <span></span>
-
-          }
-          {(page.parentId)?
-            <button type="button"><Link preventScrollReset to={`../${page.parentId}`}>Back</Link></button>
-            : <span></span>
-          }
-      </div>
-
+        }
+    
+    </main>
     </div>      
   );
 }
 
 
+function StreamedPageContent({page}) {
+  //let chunk = useEventSource(`../page/${page.id}/stream`, {event:"content" });
+  //console.log(chunk);
+  //chunk = chunk?.replaceAll("\\n", "\n");
+//let chunks = [];
+  let chunks = useSubscribe(new EventSource(`../page/${page.id}/stream`), {maxEventRetention:50, channel:'content'});
+//  console.log(chunks);
+  if (!chunks)
+    return <p>ERROR</p>;
+  
+//  chunk = chunk || "";
+//  chunks = [chunk];
+  chunks = chunks.map(chunk => chunk.replaceAll("\\n", "\n"));
+  let content = chunks.join("");
+  console.log(chunks);
+  return (
+    <div> 
+      <p> Loading</p>
+      <Content content={content}/> </div>
+    
+  );
+}
+
+function Content({content}) {
+
+  const contentLines = content?.split("\n");;
+  return (
+    <div> {
+          contentLines.map((line, index) => (
+            <p key={index}>
+              {line}
+            </p>
+          ))
+        }
+
+    </div>
+  );
+}

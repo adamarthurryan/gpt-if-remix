@@ -7,7 +7,6 @@ import {
 } from "@remix-run/react";
   
 export default function ChaptersNav({story, chapters}) {
-  console.log(story);
     return (
         <nav>
             <ul>          

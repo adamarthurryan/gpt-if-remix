@@ -1,14 +1,14 @@
 import type { StoryRecord, PageRecord } from "../data";
 
 
-export default function StoryView({story, ancestors, currentText, currentPrompt}) {
+export default function StoryView({story, ancestors}) {
     return (
         <div >
             {
                 ancestors.map((page) => {
                     return (
                         <div key={page.id}>
-                            <p className="em">&gt; {page.prompt}</p>
+                            <p className="em">&gt; <a href={`../page/${page.id}`}>{page.prompt}</a></p>
                             {page.text ? <PageView text={page.text}/> : <p></p>}
                         </div>
                     );
@@ -23,8 +23,9 @@ function PageView({text}) {
     return (
         <div>
             {
-                lines.map((line) => <p key={line.slice(0,15)}>{line}</p>)
+                lines.map((line, index) => <p key={index}>{line}</p>)
             }
         </div>
     );  
 }
+

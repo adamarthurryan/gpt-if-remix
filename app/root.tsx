@@ -37,8 +37,9 @@ export default function App() {
         <Links />
       </head>
       <body>
-        <Outlet/>
-
+        <div className="container mx-auto">
+          <Outlet/>
+        </div>
         <ScrollRestoration />
         <Scripts />
       </body>

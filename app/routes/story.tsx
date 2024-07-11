@@ -39,22 +39,19 @@ export const action = async () => {
     const submit = useSubmit();
   
     return (
-    <div className="flex">
-      <div id="sidebar">
-      <h1><Link to="/">gpt if</Link></h1>
-      <div>
-        <Form method="post">
+    <div className="flex flex-row flex-wrap py-4">
+      <aside className="w-full sm:w-1/3 md:w-1/4 px-2">
+        <div className="sticky top-2">
+          <h1><Link to="/">gpt if</Link></h1>
+      
+          <Form method="post">
           <button type="submit">New Story</button>
-        </Form>
-      </div>
-
-      <div className="sidebar">
-        <StoriesNav stories={stories} />
-      </div>
-
-      </div>
-    <Outlet />
-
+          </Form>
+      
+          <StoriesNav stories={stories} />
+        </div>
+      </aside>
+      <Outlet />
     </div>  );
   }
   
