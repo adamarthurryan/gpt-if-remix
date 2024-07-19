@@ -341,16 +341,20 @@ export async function getChapters(storyId:string) {
 }
 
 export async function getChapterPages(storyId:string, pageId:string) {
+  let chapter = await getChapterForPage(storyId, pageId);
+  if (chapter.pageId == pageId)
+    return [];
+
   let ancestors = await getPageAncestors(storyId, pageId);
-  let chapter = [];
-  
+  let pages = [];
+
   for (let i=ancestors.length-1; i>=0; i--) {
-    chapter.unshift(ancestors[i]);
-    if (await getChapter(storyId,ancestors[i].id)) {
+    pages.unshift(ancestors[i]);
+    if (chapter.pageId==ancestors[i].id) {//await getChapter(storyId,ancestors[i].id)) {
       break;
     }
   }
-  return chapter;
+  return pages;
 }
 
 export async function getChapterForPage(storyId:string, pageId:string) {

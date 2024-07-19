@@ -12,7 +12,7 @@ import { openaiRequest } from "./openai.server";
 
 type Loader = {
     content: string;
-    _stream: any;
+    generator: any;
 };
 
 const loaders = {} as Record<string, Loader>;
@@ -42,14 +42,12 @@ export async function createLoaderStream(story: StoryRecord, chapter: ChapterRec
 
 
 	const asyncGenerator = await openaiRequest("gpt-4o", messages);
-	loader._stream = ReadableStream.from(asyncGenerator);
 
-	let stream = getLoaderStreamTee(page.id);;
-	
-	for await (const chunk of stream) {
+	for await (const chunk of asyncGenerator) {
 		if (chunk!=null) {
 			loader.content += chunk;
 		}
+
 	}
 	let mutation={text: loader.content};
 	updatePage(story.id, page.id, mutation);

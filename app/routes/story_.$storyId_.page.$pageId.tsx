@@ -3,21 +3,22 @@ import type {
     LoaderFunctionArgs,
 } from "@remix-run/node";
 import { json, redirect } from "@remix-run/node";
-import { Form, Link, useLoaderData, useNavigate, useFetcher, Await, defer} from "@remix-run/react";
+import { Form, Link, useLoaderData, useNavigate, useFetcher, Await, defer, Outlet} from "@remix-run/react";
 
-import { useRef, useState, Suspense } from "react";
+import { useRef, useState, useEffect, Suspense } from "react";
 import invariant from "tiny-invariant";
 
 import { useEventSource } from "remix-utils/sse/react";
-import {useSubscribe} from "@remix-sse/client";
 
-import { getPageAncestors, getPage, getPageChildren, updatePage, getStory, getChapters, getChapterForPage, getChapterPages } from "../data";
-import { createPromptChapter } from "~/util/prompt.server";
+import { getPage, getPageChildren, updatePage, updateChapter, getStory, getChapters, getChapterForPage, getChapterPages } from "../data";
+import { createPromptChapter, createPromptChapterSynopsis } from "~/util/prompt.server";
 import StoryView from "~/components/StoryView";
 import ChaptersNav from "../components/ChaptersNav";
 import AlwaysScrollToBottom from "~/components/AlwaysScrollToBottom";
 import { isLoading, createLoaderStream } from "~/util/loader.server";
 import { openaiRequest, openaiRequestSync } from "~/util/openai.server";
+import { useDebounceSubmit } from "remix-utils/use-debounce-submit";
+
 
 export const loader = async ({
   params,
@@ -36,14 +37,39 @@ export const loader = async ({
   if (!page) {
     throw new Response("Not Found", { status: 404 });
   }
+/*
+  let isPageLoading = false;
+  if (!page.text) {
+    isPageLoading = true;
+    if (!isLoading(page.id)) {
+      createLoaderStream(story, chapter, page);
+    }
+  }
 
-  let content = page.text;
+  return json({ancestors, page, children, story, chapters, chapter, isPageLoading});
+*/    
+  let pageText = page.text;
   if (!page.text) {
     const messages = await createPromptChapter(story, chapter, page);
-    content = await openaiRequestSync("gpt-4o", messages);
+    pageText = openaiRequestSync("gpt-4o", messages);
+    pageText.then(text => {
+      const  mutation = {text};
+      updatePage(story?.id, page.id, mutation);
+    })
   }
-    
-  return defer({pageText:content, ancestors, page, children, story, chapters, chapter, isPageLoading:true});
+
+  let chapterSynopsis = chapter.synopsis || "";
+  if (!chapter.synopsis && chapter.pageId != story.rootPageId) {
+
+    const messages = await createPromptChapterSynopsis(story, chapter);  
+    chapterSynopsis = openaiRequestSync("gpt-4o", messages);
+    chapterSynopsis.then(text => {
+      const  mutation = {synopsis:text};
+      updateChapter(story?.id, chapter.pageId, mutation);
+    });
+  }
+
+  return defer({pageText, chapterSynopsis, ancestors, page, children, story, chapters, chapter, isPageLoading:true, isChapterLoading:true});
 
 };
 
@@ -59,14 +85,20 @@ export const action = async ({
   return null; //redirect(`/contacts/${params.contactId}`);
 };
 
-export default function EditPage() {
-  const { pageText, ancestors, page, children, story, chapter, chapters, isPageLoading } = useLoaderData<typeof loader>();
+export default function ViewPage() {
+  const { pageText, chapterSynopsis, ancestors, page, children, story, chapter, chapters, isPageLoading, isChapterLoading } = useLoaderData<typeof loader>();
   const navigate = useNavigate();
   const fetcher = useFetcher()
 
   let textRef = useRef();
 
-  console.log(isPageLoading, page.text);
+  function editPage() {
+    navigate(`./edit`);
+  }
+
+  function editChapter() {
+    navigate(`./chapter/edit`);
+  }
 
   return (
     <div key={page.id} className="flex flex-row flex-wrap py-4">
@@ -77,10 +109,19 @@ export default function EditPage() {
         </div>
       </aside>
 
+    <div>
+      <Outlet/>
+    </div>
 
     <main role="main" className="prose w-full sm:w-2/3 md:w-3/4 pt-1 px-2">
         <h1>{story.title}</h1>
         <h2>{chapter.title}</h2>
+        <Suspense fallback={<p>{isChapterLoading ? "Loading..." : "Error"}</p>}>
+          <Await resolve={chapterSynopsis}>
+            {(resolved) => <div onClick={editChapter} ><Content content={resolved}/></div>}
+          </Await>
+        </Suspense>
+
         <StoryView ancestors={ancestors} story={story}/>
       
       <div className="pt-2"></div>
@@ -89,32 +130,29 @@ export default function EditPage() {
       <fetcher.Form key={`${page.id}-prompt-edit`} id="page-form" method="post"
       >
         <p>
-          <input
-            defaultValue={page.prompt}
+          <input defaultValue={page.prompt}
             aria-label="Prompt"
             name="prompt"
             type="text"
             placeholder="Prompt"
           />
         </p>
-      </fetcher.Form>
-      <Form  id="page-form-reset" method="post" action="reset">
+        <input type="hidden" value="" name="text"/>
         <button type="submit">Reset</button>
-      </Form>
+      </fetcher.Form>
 
       <div className="prose w-full">
-        <Suspense fallback={<p>{isPageLoading ? "Loading..." : "Error"}</p>}>
+          <Suspense fallback={<p>{isPageLoading ? "Loading..." : "Error"}</p>}>
           <Await resolve={pageText}>
-            <Content content={pageText}/>
+            {(resolved) => <div onClick={editPage}><Content content={resolved}/></div>}
           </Await>
-        </Suspense>
-        {
-/*
+          </Suspense>
+{/*
           isPageLoading ?
             <StreamedPageContent page={page}/> :
             <Content content={page.text}/>
-*/
-          }
+*/}
+
         <AlwaysScrollToBottom/>
 
       </div>
@@ -186,37 +224,40 @@ export default function EditPage() {
   );
 }
 
-/*
 function StreamedPageContent({page}) {
-  //let chunk = useEventSource(`../page/${page.id}/stream`, {event:"content" });
-  //console.log(chunk);
-  //chunk = chunk?.replaceAll("\\n", "\n");
-//let chunks = [];
-  let chunks = useSubscribe(new EventSource(`../page/${page.id}/stream`), {maxEventRetention:50, channel:'content'});
-//  console.log(chunks);
-  if (!chunks)
-    return <p>ERROR</p>;
+
+  const [chunks, setChunks] = useState<string[]>([]);
+  let chunk = useEventSource(`../page/${page.id}/stream`, {event:"content" });
+
+  if (chunk) {
+    chunk.replaceAll("\\n", "\n");
+  }
+
+  useEffect(() => {
+    setChunks((oldChunks) => {
+      if (chunk !== null) {
+        return oldChunks.concat(chunk);
+      }
+      return oldChunks;
+    });
+  }, [chunk]);
+
+  let text = chunks.join("");
   
-//  chunk = chunk || "";
-//  chunks = [chunk];
-  chunks = chunks.map(chunk => chunk.replaceAll("\\n", "\n"));
-  let content = chunks.join("");
-  console.log(chunks);
   return (
     <div> 
       <p> Loading</p>
-      <Content content={content}/> </div>
+      <Content content={text}/> </div>
     
   );
 }
-*/
 
 function Content({content}) {
 
   if (typeof content != "string") {
     content ="";
   }
-  console.log("225", content);
+
   const contentLines = content?.split("\n");;
   return (
     <div> {

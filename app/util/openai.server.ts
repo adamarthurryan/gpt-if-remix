@@ -13,9 +13,7 @@ export async function openaiRequestSync(model: string, messages: Message[]) {
     let chunks = [];
     for await (const chunk of stream) {
         chunks.push(chunk);
-        console.log(chunk);
     }
-    console.log(chunks);
     return chunks.join("");
      
 }
