@@ -69,7 +69,10 @@ html {
     width: 100%;
   }
   
-    
+  .katex-html {
+    display: none;
+  }
+
   #sidebar {
     width: 22rem;
     background-color: #f7f7f7;

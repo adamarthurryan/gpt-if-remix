@@ -19,6 +19,11 @@ import { isLoading, createLoaderStream } from "~/util/loader.server";
 import { openaiRequest, openaiRequestSync } from "~/util/openai.server";
 import { useDebounceFetcher } from "remix-utils/use-debounce-fetcher";
 
+import markdownit from "markdown-it";
+import texmath from 'markdown-it-texmath';
+import katex from 'katex';
+
+const md = markdownit({html:true}).use(texmath, { engine: katex, delimiters: 'brackets' });
 
 export const loader = async ({
   params,
@@ -260,16 +265,9 @@ function Content({content}) {
     content ="";
   }
 
-  const contentLines = content?.split("\n");;
+  //const contentLines = content?.split("\n");;
+  const markdown = md.render(content);
   return (
-    <div> {
-          contentLines.map((line, index) => (
-            <p key={index}>
-              {line}
-            </p>
-          ))
-        }
-
-    </div>
+    <div dangerouslySetInnerHTML={{__html:markdown}}/> 
   );
 }

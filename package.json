@@ -18,6 +18,7 @@
     "@remix-sse/server": "^1.0.1",
     "dotenv": "^16.4.5",
     "isbot": "^4.1.0",
+    "katex": "^0.16.11",
     "lowdb": "^7.0.1",
     "markdown-it": "^14.1.0",
     "markdown-it-texmath": "^1.0.0",

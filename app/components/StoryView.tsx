@@ -1,4 +1,11 @@
 import type { StoryRecord, PageRecord } from "../data";
+import markdownit from "markdown-it";
+import texmath from 'markdown-it-texmath';
+import katex from 'katex';
+
+const md = markdownit({html:true})
+                  .use(texmath, { engine: katex,
+                             delimiters: 'brackets' });
 
 
 export default function StoryView({story, ancestors}) {
@@ -19,13 +26,10 @@ export default function StoryView({story, ancestors}) {
 }
 
 function PageView({text}) {
-    let lines = text.split("\n");
+    let markdown = md.render(text);
     return (
-        <div>
-            {
-                lines.map((line, index) => <p key={index}>{line}</p>)
-            }
-        </div>
+        <div dangerouslySetInnerHTML={{__html:markdown}}/>
+            
     );  
 }
 
