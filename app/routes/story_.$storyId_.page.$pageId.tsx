@@ -17,7 +17,7 @@ import ChaptersNav from "../components/ChaptersNav";
 import AlwaysScrollToBottom from "~/components/AlwaysScrollToBottom";
 import { isLoading, createLoaderStream } from "~/util/loader.server";
 import { openaiRequest, openaiRequestSync } from "~/util/openai.server";
-import { useDebounceSubmit } from "remix-utils/use-debounce-submit";
+import { useDebounceFetcher } from "remix-utils/use-debounce-fetcher";
 
 
 export const loader = async ({
@@ -88,7 +88,8 @@ export const action = async ({
 export default function ViewPage() {
   const { pageText, chapterSynopsis, ancestors, page, children, story, chapter, chapters, isPageLoading, isChapterLoading } = useLoaderData<typeof loader>();
   const navigate = useNavigate();
-  const fetcher = useFetcher()
+  //const fetcher = useFetcher()
+	const fetcher = useDebounceFetcher<Type>();
 
   let textRef = useRef();
 
@@ -125,9 +126,10 @@ export default function ViewPage() {
         <StoryView ancestors={ancestors} story={story}/>
       
       <div className="pt-2"></div>
-  {//     onChange={(event) => fetcher.submit(event.currentTarget)}
+  {//     
    }
       <fetcher.Form key={`${page.id}-prompt-edit`} id="page-form" method="post"
+        onChange={(event) => fetcher.submit(event.currentTarget,  { debounceTimeout: 1000 })}
       >
         <p>
           <input defaultValue={page.prompt}

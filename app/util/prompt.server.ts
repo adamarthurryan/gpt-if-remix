@@ -42,7 +42,7 @@ export async function createPromptChapter(story: StoryRecord, chapter: ChapterRe
     return messages;
 }
 
-const promptString = (prompt) => ">"+(prompt||"");
+const promptString = (prompt) => "> "+(prompt||"");
 
 export async function createPromptChapterSynopsis(story: StoryRecord, chapter: ChapterRecord) : Promise<Message[]> {
     if (chapter.pageId == story.rootPageId)
@@ -54,9 +54,6 @@ export async function createPromptChapterSynopsis(story: StoryRecord, chapter: C
     const pages = await getChapterPages(story.id, page.parentId);
     let  messages: Message[] = [{role:"system", content:SYNOPSIS_SYSTEM_PROMPT}];
     
-console.debug(chapter, parentChapter, story);
-
-    //!!! previous chapter synopsis?
     if (parentChapter.synopsis)
         messages.push({role:"assistant", content:("Synopsis: "+parentChapter.synopsis)});
 
@@ -65,10 +62,6 @@ console.debug(chapter, parentChapter, story);
         messages.push({role: "user", content:page.text});
     }
     messages.push({role:"user", content:page.text});
-
-    console.debug(pages);
-
-    console.debug(messages);
 
     return messages;
 }
